@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: okak-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: okak
+      POSTGRES_USER: okak
+      POSTGRES_PASSWORD: okak
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U okak -d okak"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+    container_name: okak-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      ADMIN_PORT: 3001
+      ADMIN_HOST: 127.0.0.1
+      DATABASE_URL: postgres://okak:okak@postgres:5432/okak
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev_access_secret_change_me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev_refresh_secret_change_me}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin_local}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-okak-standard}
+      FREE_QUOTA_LIMIT: ${FREE_QUOTA_LIMIT:-20}
+      DEV_EMAIL_LOG: ${DEV_EMAIL_LOG:-true}
+    ports:
+      - "3000:3000"
+      - "127.0.0.1:3001:3001"
+    command: ["sh", "-c", "node dist/db/migrate.js && node dist/db/seed.js && node dist/server.js"]
+
+volumes:
+  postgres-data:

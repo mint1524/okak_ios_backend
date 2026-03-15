@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+.coverage/
+coverage/
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+.DS_Store
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.cache/
+.turbo/
+
+# Postgres data volume mount
+.postgres-data/
+postgres-data/
+
+# OS
+Thumbs.db
