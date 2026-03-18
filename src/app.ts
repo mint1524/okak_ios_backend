@@ -6,6 +6,7 @@ import { errorsPlugin } from './plugins/errors.js';
 import { dbPlugin } from './plugins/db.js';
 import { authPlugin } from './plugins/auth.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
+import { registerSessionRoutes } from './modules/sessions/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -22,6 +23,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/health', async () => ({ status: 'ok', uptime: process.uptime() }));
 
   registerAuthRoutes(app);
+  registerSessionRoutes(app);
 
   return app;
 }
