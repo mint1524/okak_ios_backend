@@ -7,6 +7,10 @@ import { dbPlugin } from './plugins/db.js';
 import { authPlugin } from './plugins/auth.js';
 import { registerAuthRoutes } from './modules/auth/routes.js';
 import { registerSessionRoutes } from './modules/sessions/routes.js';
+import { registerProfileRoutes } from './modules/profile/routes.js';
+import { registerSettingsRoutes } from './modules/settings/routes.js';
+import { registerChatRoutes } from './modules/chats/routes.js';
+import { registerQuotaRoutes } from './modules/quota/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -24,6 +28,10 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   registerAuthRoutes(app);
   registerSessionRoutes(app);
+  registerProfileRoutes(app);
+  registerSettingsRoutes(app);
+  registerChatRoutes(app);
+  registerQuotaRoutes(app);
 
   return app;
 }
