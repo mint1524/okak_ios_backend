@@ -11,6 +11,11 @@ import { registerProfileRoutes } from './modules/profile/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerChatRoutes } from './modules/chats/routes.js';
 import { registerQuotaRoutes } from './modules/quota/routes.js';
+import { registerCatalogRoutes } from './modules/catalog/routes.js';
+import { registerSubscriptionsRoutes } from './modules/subscriptions/routes.js';
+import { registerOrdersRoutes } from './modules/orders/routes.js';
+import { registerPaymentsRoutes } from './modules/payments/routes.js';
+import { registerRecommendationsRoutes } from './modules/recommendations/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -32,6 +37,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerSettingsRoutes(app);
   registerChatRoutes(app);
   registerQuotaRoutes(app);
+  registerCatalogRoutes(app);
+  registerSubscriptionsRoutes(app);
+  registerOrdersRoutes(app);
+  registerPaymentsRoutes(app);
+  registerRecommendationsRoutes(app);
 
   return app;
 }
