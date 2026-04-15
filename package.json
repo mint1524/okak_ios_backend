@@ -11,7 +11,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --enable-source-maps dist/server.js",
+    "start:admin": "node --enable-source-maps dist/admin/server.js",
     "dev": "tsx watch src/server.ts",
+    "dev:admin": "tsx watch src/admin/server.ts",
     "migrate": "tsx src/db/migrate.ts",
     "migrate:reset": "tsx src/db/migrate.ts --reset",
     "seed": "tsx src/db/seed.ts",
