@@ -16,6 +16,8 @@ import { registerSubscriptionsRoutes } from './modules/subscriptions/routes.js';
 import { registerOrdersRoutes } from './modules/orders/routes.js';
 import { registerPaymentsRoutes } from './modules/payments/routes.js';
 import { registerRecommendationsRoutes } from './modules/recommendations/routes.js';
+import { swaggerPlugin } from './plugins/swagger.js';
+import rateLimit from '@fastify/rate-limit';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -25,9 +27,15 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   await app.register(cors, { origin: true, credentials: true });
+  await app.register(rateLimit, {
+    max: 240,
+    timeWindow: '1 minute',
+    allowList: ['127.0.0.1', '::1']
+  });
   await app.register(errorsPlugin);
   await app.register(dbPlugin);
   await app.register(authPlugin);
+  await swaggerPlugin(app);
 
   app.get('/health', async () => ({ status: 'ok', uptime: process.uptime() }));
 
