@@ -3,6 +3,8 @@ dist/
 build/
 .coverage/
 coverage/
+tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 .env
 .env.local
