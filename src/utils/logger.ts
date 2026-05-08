@@ -1,7 +1,7 @@
 import { pino } from 'pino';
 import { env } from '../config/env.js';
 
-export const logger = pino({
+export const loggerConfig = {
   level: env.logLevel,
   transport:
     env.nodeEnv === 'development'
@@ -10,4 +10,6 @@ export const logger = pino({
           options: { translateTime: 'HH:MM:ss', singleLine: true }
         }
       : undefined
-});
+};
+
+export const logger = pino(loggerConfig);
