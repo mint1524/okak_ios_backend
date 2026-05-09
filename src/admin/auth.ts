@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyRequest, FastifyReply } from 'fastify';
 import { env } from '../config/env.js';
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -29,14 +29,4 @@ export async function basicAuthGuard(req: FastifyRequest, reply: FastifyReply): 
     reply.code(401).send({ error: 'UNAUTHORIZED', message: 'Invalid admin credentials' });
     return;
   }
-}
-
-export function bindLoopbackOnly(app: FastifyInstance): void {
-  app.addHook('onRequest', async (req, reply) => {
-    const remote = req.ip;
-    const allowed = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
-    if (!allowed.includes(remote)) {
-      reply.code(403).send({ error: 'FORBIDDEN', message: 'Admin available on loopback only' });
-    }
-  });
 }

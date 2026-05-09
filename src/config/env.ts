@@ -29,7 +29,7 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: number('PORT', 3000),
   adminPort: number('ADMIN_PORT', 3001),
-  adminHost: process.env.ADMIN_HOST ?? '127.0.0.1',
+  adminHost: process.env.ADMIN_HOST ?? '0.0.0.0',
   logLevel: process.env.LOG_LEVEL ?? 'info',
 
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev_access_secret_change_me',

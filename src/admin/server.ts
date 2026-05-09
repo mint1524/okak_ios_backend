@@ -1,15 +1,14 @@
 import { buildAdminApp } from './app.js';
 import { env } from '../config/env.js';
-import { logger } from '../utils/logger.js';
 
 async function main() {
   const app = await buildAdminApp();
   await app.listen({ host: env.adminHost, port: env.adminPort });
-  logger.info({ host: env.adminHost, port: env.adminPort }, 'admin api listening');
+  app.log.info({ host: env.adminHost, port: env.adminPort }, 'admin api listening');
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, async () => {
-      logger.info({ signal }, 'admin shutting down');
+      app.log.info({ signal }, 'admin shutting down');
       await app.close();
       process.exit(0);
     });
@@ -17,6 +16,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  logger.error({ err }, 'failed to start admin');
+  console.error('failed to start admin', err);
   process.exit(1);
 });
