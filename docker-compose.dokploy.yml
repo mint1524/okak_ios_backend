@@ -1,0 +1,69 @@
+# OKAK Backend — Dokploy deployment
+# Deploy as "Docker Compose" app in Dokploy, point to this file.
+# PostgreSQL should be created as a managed Database in Dokploy UI first.
+#
+# Required env vars (set in Dokploy → Environment):
+#   OKAK_DOMAIN      — your API domain, e.g. api.okak.app
+#   DATABASE_URL     — from Dokploy managed DB, e.g. postgresql://okak:pass@okak-postgres:5432/okak
+#   JWT_ACCESS_SECRET — 64 hex chars (openssl rand -hex 32)
+#   JWT_REFRESH_SECRET — 64 hex chars (openssl rand -hex 32)
+#   ADMIN_USERNAME   — admin login (default: admin)
+#   ADMIN_PASSWORD   — admin password (generate a strong one)
+#   LLM_PROVIDER     — openai
+#   LLM_BASE_URL     — https://your-provider.com/v1
+#   LLM_API_KEY      — sk-...
+#   LLM_DEFAULT_MODEL — model name your provider knows
+
+services:
+  backend:
+    build:
+      context: .
+    container_name: okak-backend
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      ADMIN_PORT: 3001
+      ADMIN_HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-okak-standard}
+      FREE_QUOTA_LIMIT: ${FREE_QUOTA_LIMIT:-20}
+      DEV_EMAIL_LOG: ${DEV_EMAIL_LOG:-false}
+    ports:
+      # admin only on localhost — access via SSH tunnel
+      - "127.0.0.1:3001:3001"
+    labels:
+      # ── Traefik: HTTPS API ──────────────────────────────────
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+
+      # HTTPS router → port 3000
+      - "traefik.http.routers.okak-api.rule=Host(`${OKAK_DOMAIN}`)"
+      - "traefik.http.routers.okak-api.entrypoints=websecure"
+      - "traefik.http.routers.okak-api.tls=true"
+      - "traefik.http.routers.okak-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.okak-api.service=okak-api"
+
+      # Service: point Traefik to container port 3000
+      - "traefik.http.services.okak-api.loadbalancer.server.port=3000"
+
+      # HTTP → HTTPS redirect
+      - "traefik.http.routers.okak-api-http.rule=Host(`${OKAK_DOMAIN}`)"
+      - "traefik.http.routers.okak-api-http.entrypoints=web"
+      - "traefik.http.routers.okak-api-http.middlewares=okak-redirect-https"
+      - "traefik.http.middlewares.okak-redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.okak-redirect-https.redirectscheme.permanent=true"
+    command: ["sh", "-c", "node dist/db/migrate.js && node dist/db/seed.js && node dist/server.js"]
+
+networks:
+  dokploy-network:
+    external: true
