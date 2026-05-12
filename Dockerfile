@@ -5,6 +5,8 @@ RUN npm install --no-audit --no-fund
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
+# tsc skips non-TS files — copy SQL migrations into dist manually
+RUN cp -r src/db/migrations dist/db/migrations
 
 FROM node:20-alpine AS runtime
 WORKDIR /app
