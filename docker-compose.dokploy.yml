@@ -62,7 +62,7 @@ services:
       - "traefik.http.routers.okak-api-http.middlewares=okak-redirect-https"
       - "traefik.http.middlewares.okak-redirect-https.redirectscheme.scheme=https"
       - "traefik.http.middlewares.okak-redirect-https.redirectscheme.permanent=true"
-    command: ["sh", "-c", "node dist/db/migrate.js && node dist/db/seed.js && node dist/server.js"]
+    command: ["sh", "-c", "node --enable-source-maps dist/db/migrate.js && node --enable-source-maps dist/db/seed.js && node --enable-source-maps dist/admin/server.js & node --enable-source-maps dist/server.js"]
 
 networks:
   dokploy-network:

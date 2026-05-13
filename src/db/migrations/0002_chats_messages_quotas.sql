@@ -1,4 +1,4 @@
-CREATE TABLE chats (
+CREATE TABLE IF NOT EXISTS chats (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title             TEXT NOT NULL DEFAULT 'Новый чат',
@@ -9,9 +9,9 @@ CREATE TABLE chats (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_chats_user ON chats(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chats_user ON chats(user_id, updated_at DESC);
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   chat_id     UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   role        TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
@@ -20,9 +20,9 @@ CREATE TABLE messages (
   token_count INTEGER,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_messages_chat ON messages(chat_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at);
 
-CREATE TABLE message_attachments (
+CREATE TABLE IF NOT EXISTS message_attachments (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id  UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
@@ -30,9 +30,9 @@ CREATE TABLE message_attachments (
   url         TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_attachments_message ON message_attachments(message_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_message ON message_attachments(message_id);
 
-CREATE TABLE quotas (
+CREATE TABLE IF NOT EXISTS quotas (
   user_id    UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   plan_name  TEXT NOT NULL DEFAULT 'free',
   "limit"    INTEGER NOT NULL DEFAULT 20,

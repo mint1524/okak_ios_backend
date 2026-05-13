@@ -1,6 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email         TEXT NOT NULL UNIQUE,
   username      TEXT UNIQUE,
@@ -14,7 +14,7 @@ CREATE TABLE users (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   display_name    TEXT,
@@ -27,7 +27,7 @@ CREATE TABLE user_profiles (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE user_settings (
+CREATE TABLE IF NOT EXISTS user_settings (
   user_id              UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   language             TEXT NOT NULL DEFAULT 'ru',
   theme                TEXT NOT NULL DEFAULT 'system',
@@ -36,7 +36,7 @@ CREATE TABLE user_settings (
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE email_verification_codes (
+CREATE TABLE IF NOT EXISTS email_verification_codes (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code        TEXT NOT NULL,
@@ -44,9 +44,9 @@ CREATE TABLE email_verification_codes (
   consumed_at TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_email_codes_user ON email_verification_codes(user_id, consumed_at);
+CREATE INDEX IF NOT EXISTS idx_email_codes_user ON email_verification_codes(user_id, consumed_at);
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash  TEXT NOT NULL,
@@ -54,9 +54,9 @@ CREATE TABLE password_reset_tokens (
   consumed_at TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_password_tokens_user ON password_reset_tokens(user_id, consumed_at);
+CREATE INDEX IF NOT EXISTS idx_password_tokens_user ON password_reset_tokens(user_id, consumed_at);
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   refresh_token_hash TEXT NOT NULL,
@@ -69,4 +69,4 @@ CREATE TABLE sessions (
   expires_at        TIMESTAMPTZ NOT NULL,
   revoked_at        TIMESTAMPTZ
 );
-CREATE INDEX idx_sessions_user ON sessions(user_id, revoked_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, revoked_at);

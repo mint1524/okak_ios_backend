@@ -15,4 +15,4 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY --from=builder /app/dist ./dist
 EXPOSE 3000 3001
-CMD ["node", "--enable-source-maps", "dist/server.js"]
+CMD ["sh", "-c", "node --enable-source-maps dist/db/migrate.js && node --enable-source-maps dist/db/seed.js && node --enable-source-maps dist/admin/server.js & node --enable-source-maps dist/server.js"]

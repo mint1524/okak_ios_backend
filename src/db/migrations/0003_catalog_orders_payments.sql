@@ -1,4 +1,4 @@
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name          TEXT NOT NULL,
   description   TEXT NOT NULL DEFAULT '',
@@ -13,7 +13,7 @@ CREATE TABLE subscriptions (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE user_subscriptions (
+CREATE TABLE IF NOT EXISTS user_subscriptions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE RESTRICT,
@@ -24,9 +24,9 @@ CREATE TABLE user_subscriptions (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_user_subs_user ON user_subscriptions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_subs_user ON user_subscriptions(user_id, status);
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE RESTRICT,
@@ -36,9 +36,9 @@ CREATE TABLE orders (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_orders_user ON orders(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, created_at DESC);
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id            UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   provider            TEXT NOT NULL DEFAULT 'mock',
@@ -49,9 +49,9 @@ CREATE TABLE payments (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_payments_order ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id);
 
-CREATE TABLE recommendations (
+CREATE TABLE IF NOT EXISTS recommendations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscription_id UUID NOT NULL REFERENCES subscriptions(id) ON DELETE CASCADE,
@@ -59,4 +59,4 @@ CREATE TABLE recommendations (
   confidence      NUMERIC(4, 3) NOT NULL DEFAULT 0.5,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_recommendations_user ON recommendations(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recommendations_user ON recommendations(user_id, created_at DESC);
