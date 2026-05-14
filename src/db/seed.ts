@@ -50,11 +50,29 @@ async function seed(): Promise<void> {
   try {
     await pool.query('BEGIN');
 
+    // ensure unique index so ON CONFLICT works on subscription name
+    await pool.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_name_uniq ON subscriptions(name)`
+    );
+
+    // clean up duplicates from previous buggy seeds (keep lowest id per name)
+    await pool.query(
+      `DELETE FROM subscriptions WHERE id NOT IN (
+         SELECT MIN(id) FROM subscriptions GROUP BY name
+       )`
+    );
+
     for (const sub of SUBSCRIPTIONS) {
       await pool.query(
         `INSERT INTO subscriptions (name, description, price, currency, duration_days, type, status, quota_limit, features)
          VALUES ($1, $2, $3, 'RUB', $4, $5, 'active', $6, $7)
-         ON CONFLICT DO NOTHING`,
+         ON CONFLICT (name) DO UPDATE SET
+           description = EXCLUDED.description,
+           price = EXCLUDED.price,
+           duration_days = EXCLUDED.duration_days,
+           type = EXCLUDED.type,
+           quota_limit = EXCLUDED.quota_limit,
+           features = EXCLUDED.features`,
         [sub.name, sub.description, sub.price, sub.duration_days, sub.type, sub.quota_limit, sub.features]
       );
     }
@@ -91,63 +109,64 @@ async function seed(): Promise<void> {
       [userId, env.freeQuotaLimit]
     );
 
-    // demo sessions
-    const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-    await pool.query(
-      `INSERT INTO sessions (user_id, refresh_token_hash, device_name, device_type, ip_address, expires_at)
-       VALUES
-         ($1, $2, 'iPhone Demo', 'ios', '127.0.0.1', $3),
-         ($1, $4, 'MacBook Pro', 'macos', '192.168.1.42', $3)
-       ON CONFLICT DO NOTHING`,
-      [userId, sha256('demo-current-token'), expires, sha256('demo-other-token')]
-    );
-
-    // demo chats
-    const emptyChat = await pool.query<{ id: string }>(
-      `INSERT INTO chats (user_id, title, model, reasoning_level, search_enabled, streaming_enabled)
-       VALUES ($1, 'Новый чат', 'okak-standard', 'medium', FALSE, TRUE)
-       RETURNING id`,
-      [userId]
-    );
-    const filledChat = await pool.query<{ id: string }>(
-      `INSERT INTO chats (user_id, title, model, reasoning_level, search_enabled, streaming_enabled)
-       VALUES ($1, 'Знакомство с OKAK', 'okak-standard', 'medium', FALSE, TRUE)
-       RETURNING id`,
-      [userId]
-    );
-    if (filledChat.rows[0]) {
-      const chatId = filledChat.rows[0].id;
+    // demo sessions — skip if demo already has sessions
+    const demoSessions = await pool.query('SELECT 1 FROM sessions WHERE user_id = $1 LIMIT 1', [userId]);
+    if (!demoSessions.rows[0]) {
+      const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
       await pool.query(
-        `INSERT INTO messages (chat_id, role, content, status, token_count)
+        `INSERT INTO sessions (user_id, refresh_token_hash, device_name, device_type, ip_address, expires_at)
          VALUES
-           ($1, 'user', 'Привет! Что ты умеешь?', 'completed', 7),
-           ($1, 'assistant', 'Привет! Я помогаю писать тексты, отвечать на вопросы и подбирать подписки OKAK. Спрашивайте о чем угодно.', 'completed', 32)`,
-        [chatId]
+           ($1, $2, 'iPhone Demo', 'ios', '127.0.0.1', $3),
+           ($1, $4, 'MacBook Pro', 'macos', '192.168.1.42', $3)`,
+        [userId, sha256('demo-current-token'), expires, sha256('demo-other-token')]
       );
     }
 
-    // demo order
-    const proSub = await pool.query<{ id: string; price: string; currency: string; duration_days: number }>(
-      `SELECT id, price, currency, duration_days FROM subscriptions WHERE name = 'Pro AI' LIMIT 1`
-    );
-    if (proSub.rows[0]) {
-      const sub = proSub.rows[0];
-      const order = await pool.query<{ id: string }>(
-        `INSERT INTO orders (user_id, subscription_id, amount, currency, status)
-         VALUES ($1, $2, $3, $4, 'paid') RETURNING id`,
-        [userId, sub.id, sub.price, sub.currency]
+    // demo chats — skip if demo already has chats
+    const demoChats = await pool.query('SELECT 1 FROM chats WHERE user_id = $1 LIMIT 1', [userId]);
+    if (!demoChats.rows[0]) {
+      const filledChat = await pool.query<{ id: string }>(
+        `INSERT INTO chats (user_id, title, model, reasoning_level, search_enabled, streaming_enabled)
+         VALUES ($1, 'Знакомство с OKAK', 'okak-standard', 'medium', FALSE, TRUE)
+         RETURNING id`,
+        [userId]
       );
-      await pool.query(
-        `INSERT INTO payments (order_id, provider, provider_payment_id, amount, currency, status)
-         VALUES ($1, 'mock', $2, $3, $4, 'success') ON CONFLICT DO NOTHING`,
-        [order.rows[0]!.id, 'mock_demo_payment', sub.price, sub.currency]
+      if (filledChat.rows[0]) {
+        const chatId = filledChat.rows[0].id;
+        await pool.query(
+          `INSERT INTO messages (chat_id, role, content, status, token_count)
+           VALUES
+             ($1, 'user', 'Привет! Что ты умеешь?', 'completed', 7),
+             ($1, 'assistant', 'Привет! Я помогаю писать тексты, отвечать на вопросы и подбирать подписки OKAK. Спрашивайте о чем угодно.', 'completed', 32)`,
+          [chatId]
+        );
+      }
+    }
+
+    // demo order — skip if demo already has orders
+    const demoOrders = await pool.query('SELECT 1 FROM orders WHERE user_id = $1 LIMIT 1', [userId]);
+    if (!demoOrders.rows[0]) {
+      const proSub = await pool.query<{ id: string; price: string; currency: string }>(
+        `SELECT id, price, currency FROM subscriptions WHERE name = 'Pro AI' LIMIT 1`
       );
-      await pool.query(
-        `INSERT INTO user_subscriptions (user_id, subscription_id, status, start_date, end_date, auto_renew)
-         VALUES ($1, $2, 'active', now() - INTERVAL '5 days', now() + INTERVAL '25 days', FALSE)
-         ON CONFLICT DO NOTHING`,
-        [userId, sub.id]
-      );
+      if (proSub.rows[0]) {
+        const sub = proSub.rows[0];
+        const order = await pool.query<{ id: string }>(
+          `INSERT INTO orders (user_id, subscription_id, amount, currency, status)
+           VALUES ($1, $2, $3, $4, 'paid') RETURNING id`,
+          [userId, sub.id, sub.price, sub.currency]
+        );
+        await pool.query(
+          `INSERT INTO payments (order_id, provider, provider_payment_id, amount, currency, status)
+           VALUES ($1, 'mock', $2, $3, $4, 'success')`,
+          [order.rows[0]!.id, 'mock_demo_payment', sub.price, sub.currency]
+        );
+        await pool.query(
+          `INSERT INTO user_subscriptions (user_id, subscription_id, status, start_date, end_date, auto_renew)
+           VALUES ($1, $2, 'active', now() - INTERVAL '5 days', now() + INTERVAL '25 days', FALSE)`,
+          [userId, sub.id]
+        );
+      }
     }
 
     // ensure at least one admin account
