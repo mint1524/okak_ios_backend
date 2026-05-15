@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS subscriptions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name          TEXT NOT NULL,
+  name          TEXT NOT NULL UNIQUE,
   description   TEXT NOT NULL DEFAULT '',
   price         NUMERIC(12, 2) NOT NULL,
   currency      TEXT NOT NULL DEFAULT 'RUB',

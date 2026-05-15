@@ -78,12 +78,13 @@ async function seed(): Promise<void> {
     }
 
     const demoEmail = 'demo@okak.app';
+    const passwordHash = await hashPassword('Okak1Demo!!!');
     const existing = await pool.query<{ id: string }>('SELECT id FROM users WHERE email = $1', [demoEmail]);
     let userId: string;
     if (existing.rows[0]) {
       userId = existing.rows[0].id;
+      await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
     } else {
-      const passwordHash = await hashPassword('Okak1Demo!!!');
       const result = await pool.query<{ id: string }>(
         `INSERT INTO users (email, password_hash, date_of_birth, email_verified, subscription_status)
          VALUES ($1, $2, '1995-04-12', TRUE, 'free') RETURNING id`,

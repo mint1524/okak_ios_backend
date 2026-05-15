@@ -144,6 +144,21 @@ export function registerChatRoutes(app: FastifyInstance): void {
       const provider = getLLMProvider();
       let combined = '';
       let tokenCount = 0;
+
+      // Parallel DB flush: write accumulated content to DB every N chunks
+      // without blocking the SSE stream to the client.
+      const FLUSH_CHUNK_INTERVAL = 8;
+      let chunksSinceFlush = 0;
+      let dbFlushChain: Promise<void> = Promise.resolve();
+
+      const scheduleDbFlush = (snapshot: string) => {
+        dbFlushChain = dbFlushChain.then(() =>
+          chats.updateMessage(assistantPlaceholder.id, { content: snapshot, status: 'streaming' })
+            .then(() => { /* fire-and-forget, errors logged below */ })
+            .catch((err) => { app.log.warn({ err }, 'streaming db flush failed'); })
+        );
+      };
+
       try {
         for await (const evt of provider.stream({
           model: chat.model,
@@ -154,6 +169,11 @@ export function registerChatRoutes(app: FastifyInstance): void {
           if (evt.type === 'delta') {
             combined += evt.content;
             send({ type: 'delta', content: evt.content });
+            chunksSinceFlush += 1;
+            if (chunksSinceFlush >= FLUSH_CHUNK_INTERVAL) {
+              scheduleDbFlush(combined);
+              chunksSinceFlush = 0;
+            }
           } else if (evt.type === 'tool_use') {
             send({ type: 'tool_use', content: evt.content });
           } else if (evt.type === 'done') {
@@ -166,6 +186,10 @@ export function registerChatRoutes(app: FastifyInstance): void {
       } catch (err) {
         send({ type: 'error', message: (err as Error).message });
       }
+
+      // Wait for any in-flight DB flush to settle before the final update.
+      await dbFlushChain;
+
       const finalMessage = await chats.updateMessage(assistantPlaceholder.id, {
         content: combined,
         status: combined ? 'completed' : 'failed',

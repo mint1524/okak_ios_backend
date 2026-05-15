@@ -63,18 +63,22 @@ export async function migrate(options: { reset?: boolean } = {}): Promise<void> 
   }
 }
 
+let _migrated = false;
+async function runIfNeeded(reset: boolean): Promise<void> {
+  if (_migrated) return;
+  _migrated = true;
+  await migrate({ reset });
+}
+
 if (process.argv[1] && process.argv[1].endsWith('migrate.js')) {
   const reset = process.argv.includes('--reset');
-  migrate({ reset }).catch((err) => {
+  runIfNeeded(reset).catch((err) => {
     logger.error({ err }, 'migration failed');
     process.exit(1);
   });
-}
-
-// allow direct invocation in dev via tsx
-if (import.meta.url === `file://${process.argv[1]}`) {
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const reset = process.argv.includes('--reset');
-  migrate({ reset }).catch((err) => {
+  runIfNeeded(reset).catch((err) => {
     logger.error({ err }, 'migration failed');
     process.exit(1);
   });
