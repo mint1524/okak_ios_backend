@@ -62,6 +62,23 @@ async function seed(): Promise<void> {
        )`
     );
 
+    // prevent duplicate active subscriptions per user — keep latest, drop the rest
+    await pool.query(
+      `DELETE FROM user_subscriptions us
+       WHERE status = 'active'
+         AND id NOT IN (
+           SELECT id FROM (
+             SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY end_date DESC, id DESC) AS rn
+             FROM user_subscriptions WHERE status = 'active'
+           ) ranked
+           WHERE rn = 1
+         )`
+    );
+    await pool.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS user_subscriptions_one_active
+         ON user_subscriptions(user_id) WHERE status = 'active'`
+    );
+
     for (const sub of SUBSCRIPTIONS) {
       await pool.query(
         `INSERT INTO subscriptions (name, description, price, currency, duration_days, type, status, quota_limit, features)

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { Errors } from '../../plugins/errors.js';
 import { env } from '../../config/env.js';
+import { getLLMProvider } from '../llm/provider.js';
 
 export interface ChatRow {
   id: string;
@@ -188,9 +189,33 @@ export class ChatService {
 
   async maybeAutoTitle(chat: ChatRow, lastUserContent: string): Promise<ChatRow> {
     if (chat.title && chat.title !== 'Новый чат') return chat;
-    const title = lastUserContent.trim().split(/\s+/).slice(0, 6).join(' ');
+    const trimmed = lastUserContent.trim();
+    if (!trimmed) return chat;
+
+    let title = '';
+    try {
+      const result = await getLLMProvider().complete({
+        model: chat.model,
+        reasoningLevel: 'low',
+        searchEnabled: false,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Ты придумываешь короткие заголовки чатов. Сгенерируй заголовок 3-6 слов на языке пользователя. Без кавычек, без точки в конце, без эмодзи, без префиксов вроде "Тема:".'
+          },
+          { role: 'user', content: trimmed.slice(0, 1000) }
+        ]
+      });
+      title = result.content.trim().replace(/^["'«»]+|["'«»]+$/g, '').replace(/\.$/, '');
+    } catch {
+      title = '';
+    }
+    if (!title) {
+      title = trimmed.split(/\s+/).slice(0, 6).join(' ');
+    }
     if (!title) return chat;
-    const truncated = title.length > 50 ? title.slice(0, 50) + '…' : title;
+    const truncated = title.length > 60 ? title.slice(0, 60) + '…' : title;
     const { rows } = await this.app.pg.query<ChatRow>(
       `UPDATE chats SET title = $1, updated_at = now() WHERE id = $2 RETURNING *`,
       [truncated, chat.id]

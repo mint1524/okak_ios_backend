@@ -11,6 +11,7 @@ import { registerProfileRoutes } from './modules/profile/routes.js';
 import { registerSettingsRoutes } from './modules/settings/routes.js';
 import { registerChatRoutes } from './modules/chats/routes.js';
 import { registerQuotaRoutes } from './modules/quota/routes.js';
+import { registerLLMRoutes } from './modules/llm/routes.js';
 import { registerCatalogRoutes } from './modules/catalog/routes.js';
 import { registerSubscriptionsRoutes } from './modules/subscriptions/routes.js';
 import { registerOrdersRoutes } from './modules/orders/routes.js';
@@ -45,6 +46,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerSettingsRoutes(app);
   registerChatRoutes(app);
   registerQuotaRoutes(app);
+  registerLLMRoutes(app);
   registerCatalogRoutes(app);
   registerSubscriptionsRoutes(app);
   registerOrdersRoutes(app);
