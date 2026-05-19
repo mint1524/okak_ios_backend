@@ -4,6 +4,7 @@ import { Errors } from '../../plugins/errors.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
 import { generateNumericCode, generateOpaqueToken, sha256 } from '../../utils/codes.js';
 import { sendEmail } from '../../utils/mailer.js';
+import { renderCodeEmail, renderLinkEmail } from '../../utils/emailTemplates.js';
 import { env } from '../../config/env.js';
 
 export interface UserRow {
@@ -90,7 +91,15 @@ export class AuthService {
     await sendEmail({
       to: email,
       subject: 'Подтверждение почты OKAK',
-      body: `Ваш код подтверждения: ${code}`
+      body: `Ваш код подтверждения OKAK: ${code}\n\nКод действителен 30 минут. Введите его в приложении, чтобы завершить регистрацию.\n\nЕсли вы не запрашивали регистрацию, просто проигнорируйте письмо.`,
+      html: renderCodeEmail({
+        heading: 'Подтверждение почты',
+        intro: 'Введите этот код в приложении OKAK:',
+        code,
+        outro: 'Код действителен 30 минут.'
+      }),
+      category: 'transactional',
+      metadata: { kind: 'email_verification' }
     });
 
     return {
@@ -143,7 +152,15 @@ export class AuthService {
     await sendEmail({
       to: user.email,
       subject: 'Новый код подтверждения OKAK',
-      body: `Ваш код подтверждения: ${code}`
+      body: `Ваш новый код подтверждения OKAK: ${code}\n\nКод действителен 30 минут.`,
+      html: renderCodeEmail({
+        heading: 'Новый код подтверждения',
+        intro: 'Введите этот код в приложении OKAK:',
+        code,
+        outro: 'Код действителен 30 минут.'
+      }),
+      category: 'transactional',
+      metadata: { kind: 'email_verification_resend' }
     });
   }
 
@@ -229,7 +246,16 @@ export class AuthService {
     await sendEmail({
       to: user.email,
       subject: 'Сброс пароля OKAK',
-      body: `Перейдите по ссылке, чтобы сбросить пароль: https://okak.app/reset?token=${token}`
+      body: `Перейдите по ссылке, чтобы сбросить пароль: ${env.passwordResetUrl}?token=${token}\n\nСсылка действительна 60 минут. Если вы не запрашивали сброс, проигнорируйте письмо.`,
+      html: renderLinkEmail({
+        heading: 'Сброс пароля',
+        intro: 'Нажмите кнопку ниже, чтобы задать новый пароль для аккаунта OKAK.',
+        buttonLabel: 'Сбросить пароль',
+        url: `${env.passwordResetUrl}?token=${token}`,
+        outro: 'Ссылка действительна 60 минут. Если вы не запрашивали сброс — просто проигнорируйте письмо.'
+      }),
+      category: 'transactional',
+      metadata: { kind: 'password_reset' }
     });
   }
 

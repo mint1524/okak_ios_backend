@@ -8,9 +8,27 @@ interface ModelEntry {
 }
 
 const STATIC_MODELS: ModelEntry[] = [
-  { id: 'okak-mini', label: 'OKAK Mini', provider: 'okak' },
-  { id: 'okak-standard', label: 'OKAK Standard', provider: 'okak' },
-  { id: 'okak-pro', label: 'OKAK Pro', provider: 'okak' }
+  { id: 'claude-sonnet-4.6', label: 'Claude Sonnet 4.6', provider: 'anthropic' },
+  { id: 'claude-sonnet-4.6-thinking', label: 'Claude Sonnet 4.6 (thinking)', provider: 'anthropic' },
+  { id: 'claude-opus-4-7-low', label: 'Claude Opus 4.7 (low)', provider: 'anthropic' },
+  { id: 'claude-opus-4-7-medium', label: 'Claude Opus 4.7 (medium)', provider: 'anthropic' },
+  { id: 'claude-opus-4-7-high', label: 'Claude Opus 4.7 (high)', provider: 'anthropic' },
+  { id: 'claude-opus-4-7-medium-thinking', label: 'Claude Opus 4.7 (medium, thinking)', provider: 'anthropic' },
+  { id: 'claude-opus-4-7-high-thinking', label: 'Claude Opus 4.7 (high, thinking)', provider: 'anthropic' },
+  { id: 'gpt-5.5', label: 'GPT-5.5', provider: 'openai' },
+  { id: 'gpt-5.5-low', label: 'GPT-5.5 (low)', provider: 'openai' },
+  { id: 'gpt-5.5-medium', label: 'GPT-5.5 (medium)', provider: 'openai' },
+  { id: 'gpt-5.5-high', label: 'GPT-5.5 (high)', provider: 'openai' },
+  { id: 'gpt-5.5-none', label: 'GPT-5.5 (none)', provider: 'openai' },
+  { id: 'gpt-5.3-codex-high', label: 'GPT-5.3 Codex (high)', provider: 'openai' },
+  { id: 'gemini-3.1-pro-high', label: 'Gemini 3.1 Pro (high)', provider: 'google' },
+  { id: 'gemini-3.1-pro-low', label: 'Gemini 3.1 Pro (low)', provider: 'google' },
+  { id: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash', provider: 'google' },
+  { id: 'deepseek-v4', label: 'DeepSeek v4', provider: 'deepseek' },
+  { id: 'grok-3', label: 'Grok 3', provider: 'xai' },
+  { id: 'kimi-k2-6', label: 'Kimi K2.6', provider: 'moonshot' },
+  { id: 'glm-5.1', label: 'GLM 5.1', provider: 'zhipu' },
+  { id: 'minimax-m2.5', label: 'MiniMax M2.5', provider: 'minimax' }
 ];
 
 let cache: { items: ModelEntry[]; expires: number } | null = null;

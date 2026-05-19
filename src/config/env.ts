@@ -46,11 +46,19 @@ export const env = {
   llmProvider: (process.env.LLM_PROVIDER ?? 'mock') as 'mock' | 'openai',
   llmBaseUrl: process.env.LLM_BASE_URL ?? '',
   llmApiKey: process.env.LLM_API_KEY ?? '',
-  llmDefaultModel: process.env.LLM_DEFAULT_MODEL ?? 'okak-standard',
+  llmDefaultModel: process.env.LLM_DEFAULT_MODEL ?? 'claude-sonnet-4.6',
   llmRequestTimeoutMs: number('LLM_REQUEST_TIMEOUT_MS', 60_000),
 
   freeQuotaLimit: number('FREE_QUOTA_LIMIT', 20),
-  devEmailLog: boolean('DEV_EMAIL_LOG', true)
+  devEmailLog: boolean('DEV_EMAIL_LOG', true),
+
+  mailServiceBaseUrl: process.env.MAIL_SERVICE_BASE_URL ?? '',
+  mailServiceToken: process.env.MAIL_SERVICE_TOKEN ?? '',
+  mailRequestHmacSecret: process.env.MAIL_REQUEST_HMAC_SECRET ?? '',
+  mailFrom: process.env.MAIL_FROM ?? 'OKAK <noreply@okak.club>',
+  mailRequestTimeoutMs: number('MAIL_REQUEST_TIMEOUT_MS', 10_000),
+
+  passwordResetUrl: process.env.PASSWORD_RESET_URL ?? 'https://okak.club/reset'
 };
 
 export type Env = typeof env;
