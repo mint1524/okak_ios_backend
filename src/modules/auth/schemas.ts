@@ -29,7 +29,8 @@ export const passwordResetRequestSchema = z.object({
 });
 
 export const passwordResetConfirmSchema = z.object({
-  token: z.string().min(10),
+  email: z.string().email(),
+  code: z.string().length(6).regex(/^\d{6}$/),
   password: passwordSchema
 });
 

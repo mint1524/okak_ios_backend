@@ -56,9 +56,7 @@ export const env = {
   mailServiceToken: process.env.MAIL_SERVICE_TOKEN ?? '',
   mailRequestHmacSecret: process.env.MAIL_REQUEST_HMAC_SECRET ?? '',
   mailFrom: process.env.MAIL_FROM ?? 'OKAK <noreply@okak.club>',
-  mailRequestTimeoutMs: number('MAIL_REQUEST_TIMEOUT_MS', 10_000),
-
-  passwordResetUrl: process.env.PASSWORD_RESET_URL ?? 'https://okak.club/reset'
+  mailRequestTimeoutMs: number('MAIL_REQUEST_TIMEOUT_MS', 10_000)
 };
 
 export type Env = typeof env;

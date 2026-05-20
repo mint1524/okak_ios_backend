@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import type pkg from 'pg';
 import { Errors } from '../../plugins/errors.js';
 import { hashPassword, verifyPassword } from '../../utils/password.js';
-import { generateNumericCode, generateOpaqueToken, sha256 } from '../../utils/codes.js';
+import { generateNumericCode, sha256 } from '../../utils/codes.js';
 import { sendEmail } from '../../utils/mailer.js';
-import { renderCodeEmail, renderLinkEmail } from '../../utils/emailTemplates.js';
+import { renderCodeEmail } from '../../utils/emailTemplates.js';
 import { env } from '../../config/env.js';
 
 export interface UserRow {
@@ -236,52 +236,81 @@ export class AuthService {
     const userResult = await this.pg.query<UserRow>('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
     const user = userResult.rows[0];
     if (!user) return;
-    const token = generateOpaqueToken();
-    const tokenHash = sha256(token);
+    const code = generateNumericCode(6);
     const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    // invalidate previous unconsumed codes for this user
     await this.pg.query(
-      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
-      [user.id, tokenHash, expiresAt]
+      `UPDATE password_reset_codes SET consumed_at = now()
+       WHERE user_id = $1 AND consumed_at IS NULL`,
+      [user.id]
+    );
+    await this.pg.query(
+      `INSERT INTO password_reset_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
+      [user.id, code, expiresAt]
     );
     await sendEmail({
       to: user.email,
       subject: 'Сброс пароля OKAK',
-      body: `Перейдите по ссылке, чтобы сбросить пароль: ${env.passwordResetUrl}?token=${token}\n\nСсылка действительна 60 минут. Если вы не запрашивали сброс, проигнорируйте письмо.`,
-      html: renderLinkEmail({
+      body: `Ваш код для сброса пароля OKAK: ${code}\n\nКод действителен 60 минут. Введите его в приложении вместе с новым паролем.\n\nЕсли вы не запрашивали сброс, проигнорируйте письмо.`,
+      html: renderCodeEmail({
         heading: 'Сброс пароля',
-        intro: 'Нажмите кнопку ниже, чтобы задать новый пароль для аккаунта OKAK.',
-        buttonLabel: 'Сбросить пароль',
-        url: `${env.passwordResetUrl}?token=${token}`,
-        outro: 'Ссылка действительна 60 минут. Если вы не запрашивали сброс — просто проигнорируйте письмо.'
+        intro: 'Введите этот код в приложении OKAK, чтобы задать новый пароль:',
+        code,
+        outro: 'Код действителен 60 минут. Если вы не запрашивали сброс — просто проигнорируйте письмо.'
       }),
       category: 'transactional',
       metadata: { kind: 'password_reset' }
     });
   }
 
-  async confirmPasswordReset(input: { token: string; password: string }) {
-    const tokenHash = sha256(input.token);
-    const tokenResult = await this.pg.query<{ id: string; user_id: string; expires_at: Date }>(
-      `SELECT id, user_id, expires_at FROM password_reset_tokens
-       WHERE token_hash = $1 AND consumed_at IS NULL`,
-      [tokenHash]
+  async confirmPasswordReset(input: { email: string; code: string; password: string }) {
+    const userResult = await this.pg.query<UserRow>(
+      'SELECT * FROM users WHERE email = $1',
+      [input.email.toLowerCase()]
     );
-    const token = tokenResult.rows[0];
-    if (!token) throw Errors.validation('Токен недействителен');
-    if (token.expires_at.getTime() < Date.now()) throw Errors.validation('Токен истёк');
+    const user = userResult.rows[0];
+    if (!user) throw Errors.validation('Код недействителен');
+
+    const codeResult = await this.pg.query<{
+      id: string;
+      expires_at: Date;
+      attempts: number;
+    }>(
+      `SELECT id, expires_at, attempts FROM password_reset_codes
+       WHERE user_id = $1 AND code = $2 AND consumed_at IS NULL
+       ORDER BY created_at DESC LIMIT 1`,
+      [user.id, input.code]
+    );
+    const record = codeResult.rows[0];
+    if (!record) {
+      // increment attempts on most recent active code if exists
+      await this.pg.query(
+        `UPDATE password_reset_codes
+         SET attempts = attempts + 1
+         WHERE user_id = $1 AND consumed_at IS NULL`,
+        [user.id]
+      );
+      throw Errors.validation('Код недействителен');
+    }
+    if (record.expires_at.getTime() < Date.now()) {
+      throw Errors.validation('Код истёк, запросите новый');
+    }
+    if (record.attempts >= 5) {
+      throw Errors.validation('Превышено число попыток, запросите новый код');
+    }
 
     const passwordHash = await hashPassword(input.password);
     await this.pg.query(
       `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
-      [passwordHash, token.user_id]
+      [passwordHash, user.id]
     );
     await this.pg.query(
-      `UPDATE password_reset_tokens SET consumed_at = now() WHERE id = $1`,
-      [token.id]
+      `UPDATE password_reset_codes SET consumed_at = now() WHERE id = $1`,
+      [record.id]
     );
     await this.pg.query(
       `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
-      [token.user_id]
+      [user.id]
     );
   }
 
