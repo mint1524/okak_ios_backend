@@ -80,7 +80,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.post('/auth/password-reset/request', async (req, reply) => {
     const body = passwordResetRequestSchema.parse(req.body);
     await auth.requestPasswordReset(body.email);
-    return reply.code(202).send({ message: 'Если адрес зарегистрирован, ссылка выслана' });
+    return reply.code(202).send({ message: 'Если адрес зарегистрирован, код отправлен' });
   });
 
   app.post('/auth/password-reset/confirm', async (req, reply) => {

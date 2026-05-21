@@ -88,19 +88,25 @@ export class AuthService {
       [user.id, code, expiresAt]
     );
 
-    await sendEmail({
-      to: email,
-      subject: 'Подтверждение почты OKAK',
-      body: `Ваш код подтверждения OKAK: ${code}\n\nКод действителен 30 минут. Введите его в приложении, чтобы завершить регистрацию.\n\nЕсли вы не запрашивали регистрацию, просто проигнорируйте письмо.`,
-      html: renderCodeEmail({
-        heading: 'Подтверждение почты',
-        intro: 'Введите этот код в приложении OKAK:',
-        code,
-        outro: 'Код действителен 30 минут.'
-      }),
-      category: 'transactional',
-      metadata: { kind: 'email_verification' }
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Подтверждение почты OKAK',
+        body: `Ваш код подтверждения OKAK: ${code}\n\nКод действителен 30 минут. Введите его в приложении, чтобы завершить регистрацию.\n\nЕсли вы не запрашивали регистрацию, просто проигнорируйте письмо.`,
+        html: renderCodeEmail({
+          heading: 'Подтверждение почты',
+          intro: 'Введите этот код в приложении OKAK:',
+          code,
+          outro: 'Код действителен 30 минут.'
+        }),
+        category: 'transactional',
+        metadata: { kind: 'email_verification' }
+      });
+    } catch (err) {
+      // Email delivery failure must not abort registration — user is already
+      // persisted and can request a resend from the verification screen.
+      this.app.log.warn({ err, email }, 'verification email failed to send after registration');
+    }
 
     return {
       userId: user.id,
@@ -149,19 +155,23 @@ export class AuthService {
       `INSERT INTO email_verification_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
       [user.id, code, expiresAt]
     );
-    await sendEmail({
-      to: user.email,
-      subject: 'Новый код подтверждения OKAK',
-      body: `Ваш новый код подтверждения OKAK: ${code}\n\nКод действителен 30 минут.`,
-      html: renderCodeEmail({
-        heading: 'Новый код подтверждения',
-        intro: 'Введите этот код в приложении OKAK:',
-        code,
-        outro: 'Код действителен 30 минут.'
-      }),
-      category: 'transactional',
-      metadata: { kind: 'email_verification_resend' }
-    });
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Новый код подтверждения OKAK',
+        body: `Ваш новый код подтверждения OKAK: ${code}\n\nКод действителен 30 минут.`,
+        html: renderCodeEmail({
+          heading: 'Новый код подтверждения',
+          intro: 'Введите этот код в приложении OKAK:',
+          code,
+          outro: 'Код действителен 30 минут.'
+        }),
+        category: 'transactional',
+        metadata: { kind: 'email_verification_resend' }
+      });
+    } catch (err) {
+      this.app.log.warn({ err, email: user.email }, 'verification resend email failed');
+    }
   }
 
   async login(input: { identifier: string; password: string }, ctx: SessionContext) {
@@ -248,19 +258,23 @@ export class AuthService {
       `INSERT INTO password_reset_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
       [user.id, code, expiresAt]
     );
-    await sendEmail({
-      to: user.email,
-      subject: 'Сброс пароля OKAK',
-      body: `Ваш код для сброса пароля OKAK: ${code}\n\nКод действителен 60 минут. Введите его в приложении вместе с новым паролем.\n\nЕсли вы не запрашивали сброс, проигнорируйте письмо.`,
-      html: renderCodeEmail({
-        heading: 'Сброс пароля',
-        intro: 'Введите этот код в приложении OKAK, чтобы задать новый пароль:',
-        code,
-        outro: 'Код действителен 60 минут. Если вы не запрашивали сброс — просто проигнорируйте письмо.'
-      }),
-      category: 'transactional',
-      metadata: { kind: 'password_reset' }
-    });
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: 'Сброс пароля OKAK',
+        body: `Ваш код для сброса пароля OKAK: ${code}\n\nКод действителен 60 минут. Введите его в приложении вместе с новым паролем.\n\nЕсли вы не запрашивали сброс, проигнорируйте письмо.`,
+        html: renderCodeEmail({
+          heading: 'Сброс пароля',
+          intro: 'Введите этот код в приложении OKAK, чтобы задать новый пароль:',
+          code,
+          outro: 'Код действителен 60 минут. Если вы не запрашивали сброс — просто проигнорируйте письмо.'
+        }),
+        category: 'transactional',
+        metadata: { kind: 'password_reset' }
+      });
+    } catch (err) {
+      this.app.log.warn({ err, email: user.email }, 'password reset email failed');
+    }
   }
 
   async confirmPasswordReset(input: { email: string; code: string; password: string }) {

@@ -3,16 +3,19 @@
 # PostgreSQL should be created as a managed Database in Dokploy UI first.
 #
 # Required env vars (set in Dokploy → Environment):
-#   OKAK_DOMAIN      — your API domain, e.g. api.okak.app
-#   DATABASE_URL     — from Dokploy managed DB, e.g. postgresql://okak:pass@okak-postgres:5432/okak
-#   JWT_ACCESS_SECRET — 64 hex chars (openssl rand -hex 32)
-#   JWT_REFRESH_SECRET — 64 hex chars (openssl rand -hex 32)
-#   ADMIN_USERNAME   — admin login (default: admin)
-#   ADMIN_PASSWORD   — admin password (generate a strong one)
-#   LLM_PROVIDER     — openai
-#   LLM_BASE_URL     — https://your-provider.com/v1
-#   LLM_API_KEY      — sk-...
-#   LLM_DEFAULT_MODEL — model name your provider knows
+#   OKAK_DOMAIN           — your API domain, e.g. api.okak.app
+#   DATABASE_URL          — from Dokploy managed DB
+#   JWT_ACCESS_SECRET     — 64 hex chars (openssl rand -hex 32)
+#   JWT_REFRESH_SECRET    — 64 hex chars (openssl rand -hex 32)
+#   ADMIN_USERNAME        — admin login (default: admin)
+#   ADMIN_PASSWORD        — admin password
+#   LLM_PROVIDER          — openai
+#   LLM_BASE_URL          — https://your-provider.com/v1
+#   LLM_API_KEY           — sk-...
+#   LLM_DEFAULT_MODEL     — model name your provider knows
+#   MAIL_SERVICE_BASE_URL — URL of the OKAK MAIL service, e.g. https://mail.okak.club
+#   MAIL_SERVICE_TOKEN    — shared secret with OKAK MAIL
+#   MAIL_REQUEST_HMAC_SECRET — same value as MAIL_SERVICE_TOKEN (or separate HMAC secret)
 
 services:
   backend:
@@ -37,7 +40,10 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-okak-standard}
       FREE_QUOTA_LIMIT: ${FREE_QUOTA_LIMIT:-20}
-      DEV_EMAIL_LOG: ${DEV_EMAIL_LOG:-false}
+      DEV_EMAIL_LOG: "false"
+      MAIL_SERVICE_BASE_URL: ${MAIL_SERVICE_BASE_URL}
+      MAIL_SERVICE_TOKEN: ${MAIL_SERVICE_TOKEN}
+      MAIL_REQUEST_HMAC_SECRET: ${MAIL_REQUEST_HMAC_SECRET:-${MAIL_SERVICE_TOKEN}}
     ports:
       # admin only on localhost — access via SSH tunnel
       - "127.0.0.1:3001:3001"
