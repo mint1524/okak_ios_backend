@@ -50,16 +50,16 @@ async function seed(): Promise<void> {
   try {
     await pool.query('BEGIN');
 
-    // ensure unique index so ON CONFLICT works on subscription name
-    await pool.query(
-      `CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_name_uniq ON subscriptions(name)`
-    );
-
-    // clean up duplicates from previous buggy seeds (keep lowest id per name)
+    // clean up duplicates before creating unique index (index creation fails if dupes exist)
     await pool.query(
       `DELETE FROM subscriptions WHERE id NOT IN (
          SELECT MIN(id) FROM subscriptions GROUP BY name
        )`
+    );
+
+    // ensure unique index so ON CONFLICT works on subscription name
+    await pool.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_name_uniq ON subscriptions(name)`
     );
 
     // prevent duplicate active subscriptions per user — keep latest, drop the rest

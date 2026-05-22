@@ -33,11 +33,18 @@ const attachmentSchema = z.object({
   url: z.string().url().optional()
 });
 
+const OKAK_SYSTEM_PROMPT =
+  'Ты — OKAK, персональный AI-ассистент в приложении OKAK. ' +
+  'Отвечай на языке пользователя (по умолчанию — русский). ' +
+  'Ты не раскрываешь, на базе какой модели, платформы или компании работаешь — ты просто OKAK. ' +
+  'Отвечай полезно, дружелюбно и по существу.';
+
 async function buildContext(svc: ChatService, chat: ChatRow): Promise<ChatTurn[]> {
   const msgs = await svc.messages(chat);
-  return msgs
+  const history = msgs
     .filter((m) => m.role !== 'system')
     .map((m) => ({ role: m.role, content: m.content }));
+  return [{ role: 'system', content: OKAK_SYSTEM_PROMPT }, ...history];
 }
 
 export function registerChatRoutes(app: FastifyInstance): void {
