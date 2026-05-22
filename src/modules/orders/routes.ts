@@ -47,6 +47,7 @@ export function registerOrdersRoutes(app: FastifyInstance): void {
     const sub = subRes.rows[0];
     if (!sub) throw Errors.notFound('Подписка не найдена');
     if (sub.status !== 'active') throw Errors.validation('Подписка недоступна');
+    if (Number(sub.price) <= 0) throw Errors.validation('Free-тариф выдаётся автоматически при регистрации');
     const orderRes = await app.pg.query<OrderRow>(
       `INSERT INTO orders (user_id, subscription_id, amount, currency, status)
        VALUES ($1, $2, $3, $4, 'pending') RETURNING *`,

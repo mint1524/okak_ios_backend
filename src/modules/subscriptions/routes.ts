@@ -29,12 +29,20 @@ function toDTO(row: UserSubscriptionRow) {
 export function registerSubscriptionsRoutes(app: FastifyInstance): void {
   app.get('/subscriptions/active', { preHandler: app.authenticate }, async (req) => {
     const { rows } = await app.pg.query<UserSubscriptionRow>(
-      `SELECT us.id, us.user_id, us.subscription_id, s.name, us.status,
-              us.start_date, us.end_date, us.auto_renew, s.quota_limit
-       FROM user_subscriptions us
-       JOIN subscriptions s ON s.id = us.subscription_id
-       WHERE us.user_id = $1
-       ORDER BY us.end_date DESC`,
+      `SELECT id, user_id, subscription_id, name, status, start_date, end_date, auto_renew, quota_limit
+       FROM (
+         SELECT us.id, us.user_id, us.subscription_id, s.name, us.status,
+                us.start_date, us.end_date, us.auto_renew, s.quota_limit,
+                ROW_NUMBER() OVER (
+                  PARTITION BY us.user_id, us.subscription_id
+                  ORDER BY us.end_date DESC, us.id DESC
+                ) AS rn
+         FROM user_subscriptions us
+         JOIN subscriptions s ON s.id = us.subscription_id
+         WHERE us.user_id = $1 AND us.status = 'active'
+       ) ranked
+       WHERE rn = 1
+       ORDER BY end_date DESC`,
       [req.user!.sub]
     );
     return { items: rows.map(toDTO) };

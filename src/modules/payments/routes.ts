@@ -39,6 +39,12 @@ async function activateSubscription(app: FastifyInstance, orderId: string): Prom
   if (!order) return;
   const endDate = new Date(Date.now() + order.duration_days * 24 * 60 * 60 * 1000);
   await app.pg.query(
+    `UPDATE user_subscriptions
+     SET status = 'cancelled', auto_renew = FALSE, updated_at = now()
+     WHERE user_id = $1 AND status = 'active'`,
+    [order.user_id]
+  );
+  await app.pg.query(
     `INSERT INTO user_subscriptions (user_id, subscription_id, status, end_date, auto_renew)
      VALUES ($1, $2, 'active', $3, FALSE)`,
     [order.user_id, order.subscription_id, endDate]

@@ -38,7 +38,18 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
       where += ` AND type = $${params.length}`;
     }
     const { rows } = await app.pg.query<SubscriptionRow>(
-      `SELECT * FROM subscriptions ${where} ORDER BY price ASC`,
+      `SELECT id, name, description, price, currency, duration_days, type, status, quota_limit, features
+       FROM (
+         SELECT s.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY lower(name), type
+                  ORDER BY price ASC, duration_days DESC, id ASC
+                ) AS rn
+         FROM subscriptions s
+         ${where} AND price > 0
+       ) ranked
+       WHERE rn = 1
+       ORDER BY price ASC, duration_days ASC`,
       params
     );
     return { items: rows.map(toDTO) };
