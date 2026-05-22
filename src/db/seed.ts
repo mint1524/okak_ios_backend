@@ -52,8 +52,16 @@ async function seed(): Promise<void> {
 
     // clean up duplicates before creating unique index (index creation fails if dupes exist)
     await pool.query(
-      `DELETE FROM subscriptions WHERE id NOT IN (
-         SELECT MIN(id) FROM subscriptions GROUP BY name
+      `DELETE FROM subscriptions s
+       WHERE s.id NOT IN (
+         SELECT id FROM (
+           SELECT id, ROW_NUMBER() OVER (
+             PARTITION BY lower(trim(name)), type
+             ORDER BY price ASC, duration_days DESC, id ASC
+           ) AS rn
+           FROM subscriptions
+         ) ranked
+         WHERE rn = 1
        )`
     );
 
@@ -80,6 +88,21 @@ async function seed(): Promise<void> {
     );
 
     for (const sub of SUBSCRIPTIONS) {
+      const updated = await pool.query(
+        `UPDATE subscriptions
+         SET name = $1,
+             description = $2,
+             price = $3,
+             currency = 'RUB',
+             duration_days = $4,
+             type = $5,
+             status = 'active',
+             quota_limit = $6,
+             features = $7
+         WHERE lower(trim(name)) = lower($1) AND type = $5`,
+        [sub.name, sub.description, sub.price, sub.duration_days, sub.type, sub.quota_limit, sub.features]
+      );
+      if (updated.rowCount && updated.rowCount > 0) continue;
       await pool.query(
         `INSERT INTO subscriptions (name, description, price, currency, duration_days, type, status, quota_limit, features)
          VALUES ($1, $2, $3, 'RUB', $4, $5, 'active', $6, $7)

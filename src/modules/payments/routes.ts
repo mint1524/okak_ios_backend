@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { Errors } from '../../plugins/errors.js';
 import { logger } from '../../utils/logger.js';
+import { planNameFromSubscription } from '../quota/service.js';
 
 const createPaymentSchema = z.object({
   order_id: z.string().uuid()
@@ -28,9 +29,17 @@ interface PaymentRow {
   status: string;
 }
 
+interface SubscriptionOrderRow {
+  user_id: string;
+  subscription_id: string;
+  name: string;
+  duration_days: number;
+  quota_limit: number;
+}
+
 async function activateSubscription(app: FastifyInstance, orderId: string): Promise<void> {
-  const orderRes = await app.pg.query<{ user_id: string; subscription_id: string; duration_days: number; quota_limit: number }>(
-    `SELECT o.user_id, o.subscription_id, s.duration_days, s.quota_limit
+  const orderRes = await app.pg.query<SubscriptionOrderRow>(
+    `SELECT o.user_id, o.subscription_id, s.name, s.duration_days, s.quota_limit
      FROM orders o JOIN subscriptions s ON s.id = o.subscription_id
      WHERE o.id = $1`,
     [orderId]
@@ -54,9 +63,14 @@ async function activateSubscription(app: FastifyInstance, orderId: string): Prom
     [order.user_id]
   );
   await app.pg.query(
-    `UPDATE quotas SET "limit" = GREATEST("limit", $2), used = 0, reset_at = $3
-     WHERE user_id = $1`,
-    [order.user_id, order.quota_limit, endDate]
+    `INSERT INTO quotas (user_id, plan_name, "limit", used, reset_at)
+     VALUES ($1, $2, $3, 0, $4)
+     ON CONFLICT (user_id) DO UPDATE
+     SET plan_name = EXCLUDED.plan_name,
+         "limit" = EXCLUDED."limit",
+         used = 0,
+         reset_at = EXCLUDED.reset_at`,
+    [order.user_id, planNameFromSubscription(order.name), order.quota_limit, endDate]
   );
 }
 

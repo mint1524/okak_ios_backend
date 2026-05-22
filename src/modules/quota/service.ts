@@ -10,6 +10,20 @@ export interface QuotaRow {
   reset_at: Date;
 }
 
+interface ActivePlanRow {
+  name: string;
+  quota_limit: number;
+  end_date: Date;
+}
+
+export function planNameFromSubscription(name: string): string {
+  const tier = name.trim().toLowerCase().split(/\s+/)[0];
+  if (tier === 'free' || tier === 'pro' || tier === 'premium' || tier === 'business') {
+    return tier;
+  }
+  return tier || 'paid';
+}
+
 export class QuotaService {
   constructor(private readonly app: FastifyInstance) {}
 
@@ -18,14 +32,14 @@ export class QuotaService {
       'SELECT user_id, plan_name, "limit" AS "limit", used, reset_at FROM quotas WHERE user_id = $1',
       [userId]
     );
-    if (rows[0]) return this.maybeReset(rows[0]);
+    if (rows[0]) return this.syncActivePlan(await this.maybeReset(rows[0]));
     const created = await this.app.pg.query<QuotaRow>(
       `INSERT INTO quotas (user_id, plan_name, "limit", used, reset_at)
        VALUES ($1, 'free', $2, 0, now() + interval '30 days')
        RETURNING user_id, plan_name, "limit", used, reset_at`,
       [userId, env.freeQuotaLimit]
     );
-    return created.rows[0]!;
+    return this.syncActivePlan(created.rows[0]!);
   }
 
   async ensureAvailable(userId: string): Promise<QuotaRow> {
@@ -53,6 +67,34 @@ export class QuotaService {
        WHERE user_id = $1
        RETURNING user_id, plan_name, "limit", used, reset_at`,
       [quota.user_id]
+    );
+    return updated.rows[0]!;
+  }
+
+  private async syncActivePlan(quota: QuotaRow): Promise<QuotaRow> {
+    const { rows } = await this.app.pg.query<ActivePlanRow>(
+      `SELECT s.name, s.quota_limit, us.end_date
+       FROM user_subscriptions us
+       JOIN subscriptions s ON s.id = us.subscription_id
+       WHERE us.user_id = $1
+         AND us.status = 'active'
+         AND us.end_date > now()
+       ORDER BY us.end_date DESC, us.id DESC
+       LIMIT 1`,
+      [quota.user_id]
+    );
+    const activePlan = rows[0];
+    if (!activePlan) return quota;
+    const planName = planNameFromSubscription(activePlan.name);
+    if (quota.plan_name === planName && quota.limit === activePlan.quota_limit) {
+      return quota;
+    }
+    const updated = await this.app.pg.query<QuotaRow>(
+      `UPDATE quotas
+       SET plan_name = $2, "limit" = $3, reset_at = $4
+       WHERE user_id = $1
+       RETURNING user_id, plan_name, "limit", used, reset_at`,
+      [quota.user_id, planName, activePlan.quota_limit, activePlan.end_date]
     );
     return updated.rows[0]!;
   }

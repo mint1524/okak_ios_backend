@@ -34,7 +34,7 @@ export function registerSubscriptionsRoutes(app: FastifyInstance): void {
          SELECT us.id, us.user_id, us.subscription_id, s.name, us.status,
                 us.start_date, us.end_date, us.auto_renew, s.quota_limit,
                 ROW_NUMBER() OVER (
-                  PARTITION BY us.user_id, us.subscription_id
+                  PARTITION BY us.user_id, lower(trim(s.name)), s.type
                   ORDER BY us.end_date DESC, us.id DESC
                 ) AS rn
          FROM user_subscriptions us

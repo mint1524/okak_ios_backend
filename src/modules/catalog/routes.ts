@@ -42,7 +42,7 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
        FROM (
          SELECT s.*,
                 ROW_NUMBER() OVER (
-                  PARTITION BY lower(name), type
+                  PARTITION BY lower(trim(name)), type
                   ORDER BY price ASC, duration_days DESC, id ASC
                 ) AS rn
          FROM subscriptions s

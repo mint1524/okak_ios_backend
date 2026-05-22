@@ -38,15 +38,31 @@ export function registerRecommendationsRoutes(app: FastifyInstance): void {
       [req.user!.sub]
     );
     const totalMessages = Number(messageStats.rows[0]?.total ?? 0);
-    const { rows: subs } = await app.pg.query<SubscriptionRow>(
-      `SELECT * FROM subscriptions WHERE status = 'active' ORDER BY quota_limit ASC`
+    const quotaStats = await app.pg.query<{ used: number }>(
+      'SELECT used FROM quotas WHERE user_id = $1',
+      [req.user!.sub]
     );
-    const items = subs.slice(0, 3).map((sub, idx) => ({
+    const usedRequests = Number(quotaStats.rows[0]?.used ?? 0);
+    const { rows: subs } = await app.pg.query<SubscriptionRow>(
+      `SELECT id, name, description, price, currency, duration_days, type, status, quota_limit, features
+       FROM (
+         SELECT s.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY lower(trim(name)), type
+                  ORDER BY price ASC, duration_days DESC, id ASC
+                ) AS rn
+         FROM subscriptions s
+         WHERE status = 'active' AND price > 0
+       ) ranked
+       WHERE rn = 1
+       ORDER BY quota_limit ASC, price ASC`
+    );
+    const items = subs.slice(0, 3).map((sub) => ({
       id: `${req.user!.sub}-${sub.id}`,
       subscription_id: sub.id,
       title: sub.name,
       reason: buildReason(sub, totalMessages),
-      confidence: Math.max(0.2, Math.min(0.95, 0.4 + totalMessages / 100 + idx * 0.1))
+      confidence: Math.max(0, Math.min(1, usedRequests / sub.quota_limit))
     }));
     return { items };
   });
@@ -60,12 +76,12 @@ export function registerRecommendationsRoutes(app: FastifyInstance): void {
     );
     const totalMessages = Number(messageStats.rows[0]?.total ?? 0);
     const { rows } = await app.pg.query<SubscriptionRow>(
-      `SELECT * FROM subscriptions WHERE status = 'active' AND quota_limit >= $1
+      `SELECT * FROM subscriptions WHERE status = 'active' AND price > 0 AND quota_limit >= $1
        ORDER BY price ASC LIMIT 1`,
       [Math.max(50, totalMessages * 2)]
     );
     const optimal = rows[0] ?? (await app.pg.query<SubscriptionRow>(
-      `SELECT * FROM subscriptions WHERE status = 'active' ORDER BY quota_limit DESC LIMIT 1`
+      `SELECT * FROM subscriptions WHERE status = 'active' AND price > 0 ORDER BY quota_limit DESC LIMIT 1`
     )).rows[0];
     if (!optimal) throw Errors.notFound('Подписки недоступны');
     return {
@@ -82,5 +98,5 @@ function buildReason(sub: SubscriptionRow, totalMessages: number): string {
   if (totalMessages > 30 && sub.quota_limit >= 100) {
     return 'Подходит для регулярного использования AI без перерывов.';
   }
-  return `Базовый тариф ${sub.name} стартует от ${Number(sub.price).toLocaleString('ru-RU')} ${sub.currency} с ${sub.quota_limit} запросов.`;
+  return `Тариф ${sub.name} доступен для оформления за ${Number(sub.price).toLocaleString('ru-RU')} ${sub.currency} и включает ${sub.quota_limit} запросов.`;
 }
