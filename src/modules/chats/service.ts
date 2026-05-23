@@ -74,7 +74,7 @@ export class ChatService {
   async create(userId: string, input: Partial<Pick<ChatRow, 'title' | 'model' | 'reasoning_level' | 'search_enabled' | 'streaming_enabled'>>): Promise<ChatRow> {
     const { rows } = await this.app.pg.query<ChatRow>(
       `INSERT INTO chats (user_id, title, model, reasoning_level, search_enabled, streaming_enabled)
-       VALUES ($1, COALESCE($2, 'Новый чат'), COALESCE($3, $7), COALESCE($4, 'medium'), COALESCE($5, FALSE), COALESCE($6, TRUE))
+       VALUES ($1, COALESCE($2, 'Новый чат'), COALESCE($3, 'okak-standard'), COALESCE($4, 'medium'), COALESCE($5, FALSE), COALESCE($6, TRUE))
        RETURNING *`,
       [
         userId,
@@ -82,8 +82,7 @@ export class ChatService {
         input.model,
         input.reasoning_level,
         input.search_enabled,
-        input.streaming_enabled,
-        env.llmDefaultModel
+        input.streaming_enabled
       ]
     );
     return rows[0]!;

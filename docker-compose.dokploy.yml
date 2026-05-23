@@ -12,7 +12,9 @@
 #   LLM_PROVIDER          — openai
 #   LLM_BASE_URL          — https://your-provider.com/v1
 #   LLM_API_KEY           — sk-...
-#   LLM_DEFAULT_MODEL     — model name your provider knows
+#   LLM_MINI_MODEL        — provider model id for OKAK Mini (default: claude-haiku-4-5-20251001)
+#   LLM_STANDARD_MODEL    — provider model id for OKAK Standard (default: claude-sonnet-4-6)
+#   LLM_PRO_MODEL         — provider model id for OKAK Pro (default: claude-opus-4-7)
 #   MAIL_SERVICE_BASE_URL — URL of the OKAK MAIL service, e.g. https://mail.okak.club
 #   MAIL_SERVICE_TOKEN    — shared secret with OKAK MAIL
 #   MAIL_REQUEST_HMAC_SECRET — same value as MAIL_SERVICE_TOKEN (or separate HMAC secret)
@@ -39,6 +41,9 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-okak-standard}
+      LLM_MINI_MODEL: ${LLM_MINI_MODEL:-claude-haiku-4-5-20251001}
+      LLM_STANDARD_MODEL: ${LLM_STANDARD_MODEL:-claude-sonnet-4-6}
+      LLM_PRO_MODEL: ${LLM_PRO_MODEL:-claude-opus-4-7}
       FREE_QUOTA_LIMIT: ${FREE_QUOTA_LIMIT:-20}
       DEV_EMAIL_LOG: "false"
       MAIL_SERVICE_BASE_URL: ${MAIL_SERVICE_BASE_URL}

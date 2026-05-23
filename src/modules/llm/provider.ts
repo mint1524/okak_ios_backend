@@ -86,7 +86,7 @@ class OpenAICompatibleProvider implements LLMProvider {
         Authorization: `Bearer ${env.llmApiKey}`
       },
       body: JSON.stringify({
-        model: req.model,
+        model: resolveModel(req.model),
         messages: req.messages,
         stream: false
       }),
@@ -115,7 +115,7 @@ class OpenAICompatibleProvider implements LLMProvider {
         Authorization: `Bearer ${env.llmApiKey}`
       },
       body: JSON.stringify({
-        model: req.model,
+        model: resolveModel(req.model),
         messages: req.messages,
         stream: true
       }),
@@ -159,6 +159,15 @@ class OpenAICompatibleProvider implements LLMProvider {
       tokenCount: tokenCount || approximateTokens(combined)
     };
   }
+}
+
+export function resolveModel(model: string): string {
+  const map: Record<string, () => string> = {
+    'okak-mini': () => env.llmMiniModel,
+    'okak-standard': () => env.llmStandardModel,
+    'okak-pro': () => env.llmProModel
+  };
+  return (map[model] ?? (() => env.llmStandardModel))();
 }
 
 let cached: LLMProvider | undefined;

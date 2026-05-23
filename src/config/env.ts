@@ -46,7 +46,10 @@ export const env = {
   llmProvider: (process.env.LLM_PROVIDER ?? 'mock') as 'mock' | 'openai',
   llmBaseUrl: process.env.LLM_BASE_URL ?? '',
   llmApiKey: process.env.LLM_API_KEY ?? '',
-  llmDefaultModel: process.env.LLM_DEFAULT_MODEL ?? 'claude-sonnet-4.6',
+  llmDefaultModel: process.env.LLM_DEFAULT_MODEL ?? 'claude-sonnet-4-6',
+  llmMiniModel: process.env.LLM_MINI_MODEL ?? 'claude-haiku-4-5-20251001',
+  llmStandardModel: process.env.LLM_STANDARD_MODEL ?? (process.env.LLM_DEFAULT_MODEL ?? 'claude-sonnet-4-6'),
+  llmProModel: process.env.LLM_PRO_MODEL ?? 'claude-opus-4-7',
   llmRequestTimeoutMs: number('LLM_REQUEST_TIMEOUT_MS', 60_000),
 
   freeQuotaLimit: number('FREE_QUOTA_LIMIT', 20),
