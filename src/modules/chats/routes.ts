@@ -2,13 +2,15 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { ChatService, chatToDTO, messageToDTO, type ChatRow, type MessageRow } from './service.js';
 import { QuotaService, quotaToDTO } from '../quota/service.js';
-import { getLLMProvider, type ChatTurn } from '../llm/provider.js';
+import { getLLMProvider, REASONING_LEVEL_IDS, type ChatTurn } from '../llm/provider.js';
 import { Errors } from '../../plugins/errors.js';
+
+const reasoningLevelSchema = z.enum(REASONING_LEVEL_IDS);
 
 const createChatSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   model: z.string().optional(),
-  reasoning_level: z.enum(['low', 'medium', 'high']).optional(),
+  reasoning_level: reasoningLevelSchema.optional(),
   search_enabled: z.boolean().optional(),
   streaming_enabled: z.boolean().optional()
 });
@@ -17,7 +19,7 @@ const updateChatSchema = z.object({ title: z.string().min(1).max(100) });
 
 const updateParamsSchema = z.object({
   model: z.string().optional(),
-  reasoning_level: z.enum(['low', 'medium', 'high']).optional(),
+  reasoning_level: reasoningLevelSchema.optional(),
   search_enabled: z.boolean().optional(),
   streaming_enabled: z.boolean().optional()
 });
@@ -135,13 +137,26 @@ export function registerChatRoutes(app: FastifyInstance): void {
     reply.raw.setHeader('X-Accel-Buffering', 'no');
     reply.hijack();
 
+    const abortController = new AbortController();
+    let clientClosed = false;
+    const markClientClosed = () => {
+      clientClosed = true;
+      abortController.abort();
+    };
+    req.raw.once('aborted', markClientClosed);
+    reply.raw.once('close', () => {
+      if (!reply.raw.writableEnded) markClientClosed();
+    });
+
     const send = (event: object) => {
+      if (clientClosed || reply.raw.destroyed || reply.raw.writableEnded) return;
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
     try {
       const userMessage = await chats.appendMessage(chat, { role: 'user', content: body.content });
       await chats.maybeAutoTitle(chat, body.content);
+      const context = await buildContext(chats, chat);
       const assistantPlaceholder: MessageRow = await chats.appendMessage(chat, {
         role: 'assistant',
         content: '',
@@ -151,6 +166,7 @@ export function registerChatRoutes(app: FastifyInstance): void {
       const provider = getLLMProvider();
       let combined = '';
       let tokenCount = 0;
+      let streamFailed = false;
 
       // Parallel DB flush: write accumulated content to DB every N chunks
       // without blocking the SSE stream to the client.
@@ -171,8 +187,10 @@ export function registerChatRoutes(app: FastifyInstance): void {
           model: chat.model,
           reasoningLevel: chat.reasoning_level,
           searchEnabled: chat.search_enabled,
-          messages: await buildContext(chats, chat)
+          messages: context,
+          signal: abortController.signal
         })) {
+          if (clientClosed) break;
           if (evt.type === 'delta') {
             combined += evt.content;
             send({ type: 'delta', content: evt.content });
@@ -187,11 +205,15 @@ export function registerChatRoutes(app: FastifyInstance): void {
             combined = evt.content || combined;
             tokenCount = evt.tokenCount;
           } else if (evt.type === 'error') {
+            streamFailed = true;
             send({ type: 'error', message: evt.message });
           }
         }
       } catch (err) {
-        send({ type: 'error', message: (err as Error).message });
+        streamFailed = true;
+        if (!clientClosed) {
+          send({ type: 'error', message: (err as Error).message });
+        }
       }
 
       // Wait for any in-flight DB flush to settle before the final update.
@@ -199,14 +221,18 @@ export function registerChatRoutes(app: FastifyInstance): void {
 
       const finalMessage = await chats.updateMessage(assistantPlaceholder.id, {
         content: combined,
-        status: combined ? 'completed' : 'failed',
+        status: combined && !streamFailed ? 'completed' : 'failed',
         tokenCount
       });
-      const updatedQuota = await quotas.increment(req.user!.sub);
-      send({ type: 'done', message: await messageToDTO(app, finalMessage), user_message: await messageToDTO(app, userMessage) });
-      send({ type: 'quota', quota: quotaToDTO(updatedQuota) });
+      if (!clientClosed) {
+        send({ type: 'done', message: await messageToDTO(app, finalMessage), user_message: await messageToDTO(app, userMessage) });
+        if (finalMessage.status === 'completed') {
+          const updatedQuota = await quotas.increment(req.user!.sub);
+          send({ type: 'quota', quota: quotaToDTO(updatedQuota) });
+        }
+      }
     } finally {
-      reply.raw.end();
+      if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end();
     }
   });
 
